@@ -1,0 +1,297 @@
+function markEmailsAsRead(threads) {
+    for (var i = 0; i < threads.length; i++) {
+        var messages = threads[i].getMessages();
+        for (var j = 0; j < messages.length; j++) {
+            var sender = messages[j].getFrom();
+            var bccList = messages[j].getBcc(); // This method doesn't exist in Google Apps Script as of my last update
+            if (bccList.includes("home@nest-dc.com")) {
+                threads[i].markRead();
+                break;  // Exit the inner loop once we've marked the thread as read
+            }
+        }
+    }
+}
+
+function appendEmailInfoToSheet(emailInfo) {
+    var spreadsheetId = "19JoJrB3Zy0cb3eFBJpz6RWKThI3EfLmid9twBizlSlA"; // Replace with your Spreadsheet ID
+    var sheet = SpreadsheetApp.openById(spreadsheetId).getActiveSheet();
+
+    // Append a row with the email information
+    sheet.appendRow([
+        emailInfo.from, 
+        emailInfo.to, 
+        emailInfo.subject, 
+        emailInfo.sentTime,
+        emailInfo.label
+    ]);
+}
+
+function isNameMatch(appfolioName, emailName) {
+    function normalizeName(name) {
+        return name.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/);
+    }
+
+    var appfolioParts = normalizeName(appfolioName);
+    
+    var emailParts = normalizeName(emailName);
+    // Comparing first name to first name and last name to last name
+    var firstNameMatch = appfolioParts[0] === emailParts[0];
+    var lastNameMatch = appfolioParts[appfolioParts.length - 1] === emailParts[emailParts.length - 1];
+    
+    return firstNameMatch || lastNameMatch; // Return true only if both match
+}
+
+
+function countEmailRecipients(toField) {
+    // Regular expression to match email addresses (basic version)
+    const emailRegex = /[\w.-]+@[\w.-]+\.\w+/g;
+    // Extract all email addresses
+    const emailAddresses = toField.match(emailRegex);
+    // Count the number of email addresses found
+    return emailAddresses ? emailAddresses.length : 0;
+}
+
+function extractSearchValue(senderString) {
+    if (!senderString) return null; // Return null if senderString is undefined or null
+
+    var result = {
+        name: null,
+        match: null
+    };
+
+    if (senderString.includes("home@nest-dc.com")) {
+        var nameMatch = senderString.match(/'(.+?)'\s+via/);
+        if (!nameMatch){
+            nameMatch = senderString.match(/<(.+?)>/);
+        }
+        result.name = senderString.split('<')[0].trim();
+        result.match = nameMatch ? nameMatch[1] : null;
+    } else {
+        var emailMatch = senderString.match(/<(.+?)>/);
+        result.name = senderString.split('<')[0].trim();
+        result.match = emailMatch ? emailMatch[1] : senderString;
+    }
+
+    Logger.log("Name: " + result.name + ", Match: " + result.match);
+    return result;
+}
+
+
+function findSendersForSpecificRecipient() {
+    var recipientEmail = "home@nest-dc.com";
+    var cdate = new Date();
+    var ctime = cdate.getTime();
+    var qDate = new Date(ctime - 300000000000000000); // less 5 minutes from current time.
+    var query = 'to:' + recipientEmail + ' in:inbox';
+    var relevantThreads = GmailApp.search(query, 0, 500);
+
+
+    var threads = [];
+    Logger.log(relevantThreads)
+    for (var i = 0; i < relevantThreads.length; i++) {
+        var messages = relevantThreads[i].getMessages();
+        for (var j = 0; j < messages.length; j++) {
+            threads.push(relevantThreads[i]);
+            // if (messages[j].getDate().getTime() > qDate.getTime()) {
+            //     threads.push(relevantThreads[i]);
+            //     break; // break inner loop since we found a qualifying message for this thread
+            // }
+        }
+    }
+    Logger.log(threads)
+    var ss = SpreadsheetApp.openById("13exHRuan0zJXe-OLvmgmc6BmkpVRILvEVah5-T0Tyes");
+    var sheet = ss.getSheetByName("raj_test");
+    //var sheet = ss.getSheetByName("Sheet2");
+    var lastRow = sheet.getLastRow();
+
+    var tenant_reverse = sheet.getRange(2, 9, lastRow - 1, 1).getValues();
+    var owner_reverse = sheet.getRange(2, 10, lastRow - 1, 1).getValues();
+    var fullNameRange = sheet.getRange(2, 5, lastRow - 1, 1).getValues();
+    var tenantEmail = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
+    var ownerEmail = sheet.getRange(2, 8, lastRow - 1, 1).getValues();
+    var columnTRange = sheet.getRange(2, 6, lastRow - 1, 1).getValues();
+    //var forwardToEmail = "hello@nest-dc.com"
+
+
+    var ss_nest = SpreadsheetApp.openById("1hMo08yhLZG1AKuRbgZz9rMMYMBL2vN9dm7S1FUqktHQ");
+    var sheet_nest = ss_nest.getSheetByName("Appfolio");
+    var lastRow_nest = sheet_nest.getLastRow();
+
+
+    var fullNameRange = sheet.getRange(2, 5, lastRow - 1, 1).getValues();
+    var columnTRange = sheet.getRange(2, 6, lastRow - 1, 1).getValues();
+    var nestUsers = sheet_nest.getRange(2, 2, lastRow_nest - 1, 1).getValues();
+    var nestUsers_name = sheet_nest.getRange(2, 1, lastRow_nest - 1, 1).getValues();
+
+
+    var forwardToEmail = "taro@flock-dc.com"
+    for (var i = 0; i < threads.length; i++) {
+        var messages = threads[i].getMessages();
+        for (var j = 0; j < messages.length; j++) {
+            var senderFull = messages[j].getFrom();
+            var result = extractSearchValue(senderFull);
+            if (result) {
+              searchValue = result.match 
+              name = result.name
+            }
+            Logger.log(senderFull)
+            Logger.log(searchValue)
+            is_nest_employee = false
+            if (searchValue && searchValue.includes("@")) {
+                Logger.log("yes")
+                var found = false
+                for (var k = 0; k < nestUsers.length; k++) {
+                  if(nestUsers[k][0].toLowerCase() === searchValue.toLowerCase() || nestUsers_name[k][0].toLowerCase() === name.toLowerCase()){
+                    found = true
+                    is_nest_employee = true
+                    Logger.log("We need to search to of this email for from email: " + searchValue);
+                  }  
+                }
+                Logger.log(found)
+               
+                Logger.log("Lets find out the to of this email")
+                var recipientFull = messages[j].getTo();
+                Logger.log(recipientFull)
+                var numberOfRecipients = countEmailRecipients(recipientFull);
+                console.log(numberOfRecipients);  // This should print 1 for your example
+                if (numberOfRecipients>1)
+                  {
+                    var recipientsArray = recipientFull.split(",");  // Split by comma
+                    // Find the email that's not "home@nest-dc.com"
+                    var searchValue_trim = recipientsArray.find(function(email) {
+                      return email.trim() !== "home@nest-dc.com";
+                });
+                  }
+
+                searchValue_trim = recipientFull
+                
+                Logger.log(searchValue_trim)
+                var result = extractSearchValue(searchValue_trim);
+                if (result) {
+                  searchValue = result.match 
+                  name = result.name
+                }
+                if(found === false){
+                  Logger.log("Going for scenario 3")
+                  Logger.log(searchValue)
+                  var result = extractSearchValue(senderFull);
+                  if (result) {
+                    searchValue = result.match 
+                    name = result.name
+                  }
+                }
+                Logger.log(searchValue);
+            }
+            Logger.log("Printing Search value")
+            Logger.log(searchValue);
+            var found = false;
+            for (var k = 0; k < fullNameRange.length; k++) {
+                if (fullNameRange[k][0]?.toLowerCase() === searchValue?.toLowerCase() || columnTRange[k][0]?.toLowerCase() === searchValue?.toLowerCase() || tenantEmail[k][0]?.toLowerCase() === searchValue?.toLowerCase() || ownerEmail[k][0]?.toLowerCase() === searchValue?.toLowerCase() || fullNameRange[k][0]?.toLowerCase() === name?.toLowerCase() || columnTRange[k][0]?.toLowerCase() === name?.toLowerCase()
+    || tenant_reverse[k][0]?.toLowerCase() === searchValue?.toLowerCase() || owner_reverse[k][0]?.toLowerCase() === searchValue?.toLowerCase() || tenant_reverse[k][0]?.toLowerCase() === name?.toLowerCase() || owner_reverse[k][0]?.toLowerCase() === name?.toLowerCase()) {
+                    var propertyGroup = sheet.getRange(k + 2, 7).getValue();
+                    Logger.log(propertyGroup)
+                    if (!propertyGroup) { // If the label doesn't exist
+                        Logger.log("Property group Not Found")
+                        found = false;
+                        break;
+                    }
+                    var label = GmailApp.getUserLabelByName(propertyGroup);
+                    if (!label) { // If the label doesn't exist
+                        label = GmailApp.createLabel(propertyGroup); // Create the label
+                    }
+                    threads[i].addLabel(label); // Apply the label to the thread
+                    var emailInfo = {
+                    from: messages[j].getFrom(),
+                    to: messages[j].getTo(),
+                    subject: messages[j].getSubject(),
+                    sentTime: messages[j].getDate().toLocaleString(),
+                    label: propertyGroup
+                    };
+                    appendEmailInfoToSheet(emailInfo);
+                    
+                    
+                    forwardEmail(threads[i], propertyGroup) //  by Raj
+                    
+                    threads[i].markUnread();
+                    found = true;
+                    break;
+                }
+            }
+
+            // if (!found)
+            // {
+            //   for (var k = 0; k < fullNameRange.length; k++) {
+            //     if (isNameMatch(fullNameRange[k][0], searchValue) || isNameMatch(columnTRange[k][0], searchValue) || isNameMatch(fullNameRange[k][0], name) || isNameMatch(columnTRange[k][0], name)
+            //     ) { 
+            //         Logger.log("Finding Name Match")
+            //         found = true
+            //         var propertyGroup = sheet.getRange(k + 2, 7).getValue();
+            //         Logger.log(propertyGroup)
+            //         if (!propertyGroup) { // If the label doesn't exist
+            //             Logger.log("Property group Not Found")
+            //             found = false;
+            //             break;
+            //         }
+            //         var label = GmailApp.getUserLabelByName(propertyGroup);
+            //         if (!label) { // If the label doesn't exist
+            //             label = GmailApp.createLabel(propertyGroup); // Create the label
+            //         }
+            //         threads[i].addLabel(label); // Apply the label to the thread
+            //         threads[i].markUnread();
+            //         found = true;
+            //         break;
+            //     }
+            // }
+
+            // }
+           
+            if (!found) {
+                // Forward the email to the specified address only if it's not archived. Please keep the next line only for one of the home managers. For rest of them we want to comment the next line so that one message is not forwarded multiple times
+                label_name = "Unassigned"
+                for (var k = 0; k < nestUsers.length; k++) {
+                  if(nestUsers[k][0].toLowerCase() === searchValue.toLowerCase() || nestUsers_name[k][0].toLowerCase() === name.toLowerCase() ||nestUsers_name[k][0].toLowerCase() === searchValue.toLowerCase()){
+                    found = true
+                    is_nest_employee = true
+                  }  
+                }
+                var recipientFull = messages[j].getTo();
+                var numberOfRecipients = countEmailRecipients(recipientFull);
+                
+                var label = GmailApp.getUserLabelByName(label_name);
+                var senderFull = messages[j].getFrom();
+                if (!senderFull.includes('Nest Home Management')){
+                  threads[i].addLabel(label); // Apply the label to the thread
+                  var emailInfo = {
+                      from: messages[j].getFrom(),
+                      to: messages[j].getTo(),
+                      subject: messages[j].getSubject(),
+                      sentTime: messages[j].getDate().toLocaleString(),
+                      label: label_name
+                      };
+
+
+
+                  appendEmailInfoToSheet(emailInfo);
+
+
+                  
+                  forwardEmail(threads[i], propertyGroup) //  by Raj
+
+                }
+                
+                
+                threads[i].markUnread();
+               // messages[j].forward(forwardToEmail);
+                //Logger.log("message sent");
+            }
+            // Check if property group does not match the specific one, then archive
+            threads[i].moveToArchive();
+        
+
+
+        }
+    }
+
+
+    markEmailsAsRead(threads);
+}

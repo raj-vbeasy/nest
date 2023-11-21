@@ -1,0 +1,173 @@
+
+function forwardEmail(thread, label) {
+  //var ss = SpreadsheetApp.openById('1CraNTjI1C42FX-udTz_1ctsbpyPuoZ0hpYMr6ZUhvYI').getSheetByName('HomeManagement@nest-dc.com');
+  var ss = SpreadsheetApp.openById('1CraNTjI1C42FX-udTz_1ctsbpyPuoZ0hpYMr6ZUhvYI').getSheetByName('Test_Only');
+
+  var range = ss.getRange(2, 1, ss.getLastRow() - 1, 3).getValues();
+
+  var labelMap = {};
+  range.forEach(function (r) {
+    let labelNow = r[0];
+    let emailNow = r[1];
+
+    if (labelMap[labelNow]) {
+      labelMap[labelNow].push(emailNow);
+    } else {
+      labelMap[labelNow] = [emailNow];
+    }
+  });
+
+  var forwardToAddresses = labelMap[label];
+
+  // var msgCount = thread.getMessageCount();
+
+   var currentThreadId = thread.getId();
+  // var readThreadIds = GmailApp.getInboxThreads();
+
+  var knownThreadIds = loadKnownThreadIds();
+
+  if(knownThreadIds.includes(currentThreadId)){
+    return;
+  }
+
+  if (forwardToAddresses && forwardToAddresses.length > 0) {
+    var messages = thread.getMessages();
+
+    for (var i = 0; i < messages.length; i++) {
+      var message = messages[i];
+      var senderEmail = message.getFrom();
+      var toRecipients = message.getTo();
+      var ccRecipients = message.getCc();
+      var bccRecipients = message.getBcc();
+      var ccRecipientsArray = ccRecipients.split(',');
+
+      // var threadId = message.getThreadId();
+
+      // var isInReplyTo = message.isInReplyTo();
+
+      //  var messageCount = messages.length;
+
+      //  if(messageCount > 1){
+      //   return;
+      //  }
+
+
+  
+ccRecipients = ccRecipientsArray.filter(function(email) {
+  return email.trim() !== 'home@nest-dc.com' && email.trim() !== 'homemanagement@nest-dc.com';
+}).join(',')
+
+var bccRecipientsArray = bccRecipients.split(',');
+  
+
+bccRecipients = bccRecipientsArray.filter(function(email) {
+  return email.trim() !== 'home@nest-dc.com' && email.trim() !== 'homemanagement@nest-dc.com';
+}).join(',')
+
+
+var aliases = GmailApp.getAliases();
+Logger.log(aliases);
+
+      var subjectData = message.getSubject(); //by AH
+      if (subjectData.includes("Re: ")) {
+        return;
+      }// By AH
+
+
+      var subject = "Forwarded: " + message.getSubject();
+      var body  = message.getBody(); // Use getRawContent() for HTML content
+      var attachments = message.getAttachments();
+
+      var options = {
+        attachments: attachments,
+        from: aliases[0],
+        name: 'Nest Home Management',
+        replyTo: senderEmail.toString(),
+        to: forwardToAddresses+ ','+ toRecipients,
+        cc: ccRecipients,
+        bcc: bccRecipients,
+        htmlBody: body
+      };
+
+      var toRecipientsList = forwardToAddresses+ ','+ toRecipients
+
+
+  var toRecipientsArray = toRecipientsList.split(',');
+
+toRecipientsList = toRecipientsArray.filter(function(email) {
+  return email.trim() !== 'home@nest-dc.com' && email.trim() !== 'homemanagement@nest-dc.com';
+}).join(',')
+
+
+    if (senderEmail.toString() == 'home@nest-dc.com' && (toRecipientsList.includes('home@nest-dc.com') || ccRecipients.includes('home@nest-dc.com') || bccRecipients.includes('home@nest-dc.com')))
+    {
+      return;
+    }
+
+      saveKnownThreadIds([currentThreadId])
+      GmailApp.sendEmail(toRecipientsList, subject, '', options);
+    }
+  }
+}
+
+function saveKnownThreadIds(newThreadIds) {
+  var fileName = "knownThreadIds.json";
+  var fileIterator = DriveApp.getFilesByName(fileName);
+
+  var file;
+
+  if (fileIterator.hasNext()) {
+    // If the file already exists, use it
+    file = fileIterator.next();
+  } else {
+    // If the file doesn't exist, create a new one and add newThreadIds
+    file = DriveApp.createFile(fileName, JSON.stringify(newThreadIds));
+    return; // No need to proceed further since we've initialized the file
+  }
+
+  var existingThreadIds = [];
+
+  try {
+    var json = file.getBlob().getDataAsString();
+    if (json.trim() !== "") {
+      existingThreadIds = JSON.parse(json);
+    }
+  } catch (e) {
+    // Handle the error, e.g., log it
+    console.error("Error parsing JSON from the file:", e);
+    return; // Stop execution if there's an error in parsing
+  }
+
+  var completeThreadIds = existingThreadIds.concat(newThreadIds);
+  var uniqueThreadIds = [...new Set(completeThreadIds)];
+
+  var json = JSON.stringify(uniqueThreadIds);
+
+  file.setContent(json)
+}
+
+
+
+
+function loadKnownThreadIds() {
+  var fileName = "knownThreadIds.json";
+  var fileIterator = DriveApp.getFilesByName(fileName);
+
+  if (fileIterator.hasNext()) {
+    var file = fileIterator.next();
+    
+    try {
+      var json = file.getBlob().getDataAsString();
+      return JSON.parse(json);
+    } catch (e) {
+      // Handle the error, e.g., log it
+      console.error("Error parsing JSON from the file:", e);
+      // Return an empty array in case of an error
+      return [];
+    }
+  } else {
+    // Return an empty array if the file does not exist
+    return [];
+  }
+}
+

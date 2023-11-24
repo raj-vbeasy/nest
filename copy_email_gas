@@ -51,7 +51,23 @@ function forwardEmail(thread, label) {
       //   return;
       //  }
 
+//       var toRecipientsArray = toRecipients.split(',');
+//    for (var i = 0; i < toRecipientsArray.length; i++) {
 
+// var regex = /([^<]*)<([^>]*)>/;
+//   var match = toRecipientsArray[i].match(regex);
+
+//   if (match) {
+//     var displayName = match[1].trim();
+//     var toRecipientsArray[i] = match[2].trim();
+
+//     Logger.log('Display Name:', displayName);
+//     Logger.log('Email Address:', emailAddress);
+//   } else {
+//     // If the format doesn't match, assume the whole string is the email address
+//     Logger.log('Email Address:', toRecipients[i].trim());
+//   }
+//    }
   
 ccRecipients = ccRecipientsArray.filter(function(email) {
   return email.trim() !== 'home@nest-dc.com' && email.trim() !== 'homemanagement@nest-dc.com';
@@ -74,29 +90,60 @@ Logger.log(aliases);
       }// By AH
 
 
-      var subject = "Forwarded: " + message.getSubject();
+      //var subject = "Forwarded" + " : " + message.getSubject();
+      var subject = message.getSubject();
       var body  = message.getBody(); // Use getRawContent() for HTML content
       var attachments = message.getAttachments();
+
+  var toRecipientsList = forwardToAddresses+ ','+ toRecipients
+
+
+//   var toRecipientsArray = toRecipientsList.split(',');
+
+//   var excludeSubstrings = ['home@nest-dc.com', 'homemanagement@nest-dc.com'];
+
+// var toRecipientsList = toRecipientsArray.filter(function(email) {
+//   return !excludeSubstrings.some(substring => email.includes(substring));
+// }).join(',');
+
+    // var toRecipientsArray = toRecipientsList.split(',');
+  
+// var toRecipientsList = "raj@vbeasy, HMN <home@nest-dc.com>,123";
+
+// Define substrings to be excluded
+var excludeSubstrings = ['home@nest-dc.com', 'homemanagement@nest-dc.com'];
+
+// Split the list into individual items
+var toRecipientsArray = toRecipientsList.split(',');
+
+// Filter out items containing the specified substrings
+var filteredRecipientsArray = toRecipientsArray.filter(function(item) {
+  // Use regular expression to extract email address from the item
+  var match = item.match(/<([^>]*)>/);
+  var emailAddress = match ? match[1].trim() : item.trim();
+
+  // Check if the email address contains any of the specified substrings
+  return !excludeSubstrings.some(substring => emailAddress.includes(substring));
+});
+
+// Join the filtered items back into a string
+var toRecipientsList = filteredRecipientsArray.join(',');
+
+Logger.log('Filtered Recipients List:', toRecipientsList);
+
 
       var options = {
         attachments: attachments,
         from: aliases[0],
         name: 'Nest Home Management',
         replyTo: senderEmail.toString(),
-        to: forwardToAddresses+ ','+ toRecipients,
+        to: toRecipientsList,
         cc: ccRecipients,
         bcc: bccRecipients,
         htmlBody: body
       };
 
-      var toRecipientsList = forwardToAddresses+ ','+ toRecipients
 
-
-  var toRecipientsArray = toRecipientsList.split(',');
-
-toRecipientsList = toRecipientsArray.filter(function(email) {
-  return email.trim() !== 'home@nest-dc.com' && email.trim() !== 'homemanagement@nest-dc.com';
-}).join(',')
 
 
     if (senderEmail.toString() == 'home@nest-dc.com' && (toRecipientsList.includes('home@nest-dc.com') || ccRecipients.includes('home@nest-dc.com') || bccRecipients.includes('home@nest-dc.com')))
